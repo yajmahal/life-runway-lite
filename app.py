@@ -68,7 +68,7 @@ def format_man(value: float) -> str:
 # ヘッダー
 # ---------------------------------------------------------------------------
 
-st.title("海外移住生活シミュレーター")
+st.title("海外移住生活シミュレーター（簡易版）")
 st.caption("by Life Runway")
 
 st.markdown(
