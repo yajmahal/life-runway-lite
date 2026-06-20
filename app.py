@@ -21,6 +21,71 @@ from simulator import (
 )
 
 # ---------------------------------------------------------------------------
+# スライダー −／＋ ステッパー
+# ---------------------------------------------------------------------------
+
+
+def _step_session_value(key: str, delta: float, lo: float, hi: float, decimals: int):
+    """−／＋ボタン用コールバック。step 単位で増減し min/max でクランプする。"""
+    new_value = st.session_state[key] + delta
+    new_value = max(lo, min(hi, new_value))
+    st.session_state[key] = round(new_value, decimals) if decimals else int(round(new_value))
+
+
+def _clamp_session_value(key: str, lo, hi, default):
+    """描画前に session_state の値を min/max に収める。未初期化なら default を使う。"""
+    if key not in st.session_state:
+        st.session_state[key] = default
+    st.session_state[key] = max(lo, min(hi, st.session_state[key]))
+
+
+def slider_with_steppers(
+    label: str,
+    *,
+    min_value,
+    max_value,
+    default,
+    step,
+    key: str,
+    decimals: int = 0,
+    help: str | None = None,
+):
+    """スライダー＋直下の −／＋ ボタン。値は st.session_state[key] で一元管理する。"""
+    if key not in st.session_state:
+        st.session_state[key] = default
+
+    slider_kwargs: dict = {
+        "label": label,
+        "min_value": min_value,
+        "max_value": max_value,
+        "step": step,
+        "key": key,
+    }
+    if help is not None:
+        slider_kwargs["help"] = help
+    st.slider(**slider_kwargs)
+
+    with st.container(key=f"stepper_{key}", horizontal=True):
+        st.button(
+            "−",
+            key=f"{key}__minus",
+            width="stretch",
+            on_click=_step_session_value,
+            args=(key, -step, min_value, max_value, decimals),
+            help=f"{step} 下げる",
+        )
+        st.button(
+            "＋",
+            key=f"{key}__plus",
+            width="stretch",
+            on_click=_step_session_value,
+            args=(key, step, min_value, max_value, decimals),
+            help=f"{step} 上げる",
+        )
+    return st.session_state[key]
+
+
+# ---------------------------------------------------------------------------
 # ページ設定とスタイル
 # ---------------------------------------------------------------------------
 
@@ -49,6 +114,21 @@ st.markdown(
     .surplus-text { color: #1d7a46; font-weight: 700; }
     .ref-amount-label { font-size: 0.95rem; color: #555555; margin-bottom: 0.1rem; }
     .ref-amount { font-size: 1.6rem; font-weight: 700; margin-bottom: 0.3rem; }
+    [class*="st-key-stepper_"] {
+        flex-direction: row !important;
+        flex-wrap: nowrap !important;
+        gap: 0.5rem !important;
+    }
+    [class*="st-key-stepper_"] > div {
+        flex: 1 1 0 !important;
+        min-width: 0 !important;
+    }
+    [class*="st-key-stepper_"] button {
+        min-height: 0 !important;
+        padding-top: 0.25rem !important;
+        padding-bottom: 0.25rem !important;
+        line-height: 1.2 !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
@@ -89,30 +169,33 @@ st.divider()
 st.header("入力条件")
 
 # 1. 資産寿命の目標年齢（試算の目的を決める項目なので一番上に配置）
-target_age = st.slider(
+target_age = slider_with_steppers(
     "資産寿命の目標年齢",
     min_value=80,
     max_value=100,
-    value=90,
+    default=90,
     step=1,
+    key="target_age",
 )
 
 # 2. 海外生活を始める年齢
-start_age = st.slider(
+start_age = slider_with_steppers(
     "海外生活を始める年齢",
     min_value=55,
     max_value=75,
-    value=60,
+    default=60,
     step=1,
+    key="start_age",
 )
 
 # 3. 海外生活開始時の手元資産（万円, 0〜2億 = 0〜20000, 100刻み）
-initial_hand_assets = st.slider(
+initial_hand_assets = slider_with_steppers(
     "海外生活開始時の手元資産（万円）",
     min_value=0,
     max_value=20000,
-    value=3000,
+    default=3000,
     step=100,
+    key="initial_hand_assets",
     help="退職金や一時金を含め、海外生活を始める時点で使える金融資産の合計額を入力してください。",
 )
 
@@ -125,21 +208,23 @@ sell_japan_home_choice = st.radio(
 sell_japan_home = sell_japan_home_choice == "する"
 japan_home_proceeds = 0
 if sell_japan_home:
-    japan_home_proceeds = st.slider(
+    japan_home_proceeds = slider_with_steppers(
         "売却後の手取り額（万円）／日本の持ち家",
         min_value=0,
         max_value=20000,
-        value=0,
+        default=0,
         step=100,
+        key="japan_home_proceeds",
     )
 
 # 5. 海外生活中の月額生活費
-overseas_monthly_cost = st.slider(
+overseas_monthly_cost = slider_with_steppers(
     "海外生活中の月額生活費（万円）",
     min_value=5,
     max_value=100,
-    value=30,
+    default=30,
     step=1,
+    key="overseas_monthly_cost",
 )
 
 # 6. 日本に戻る予定
@@ -159,20 +244,23 @@ if plan_to_return:
     # 日本に戻る年齢は「海外生活を始める年齢 + 1」以上に制御する
     return_min = start_age + 1
     return_default = min(max(80, return_min), 100)
-    return_age = st.slider(
+    _clamp_session_value("return_age", return_min, 100, return_default)
+    return_age = slider_with_steppers(
         "日本に戻る年齢",
         min_value=return_min,
         max_value=100,
-        value=return_default,
+        default=return_default,
         step=1,
+        key="return_age",
     )
 
-    japan_monthly_cost = st.slider(
+    japan_monthly_cost = slider_with_steppers(
         "日本帰国後の月額生活費（万円）",
         min_value=5,
         max_value=100,
-        value=30,
+        default=30,
         step=1,
+        key="japan_monthly_cost",
     )
 
     # 海外の住まい売却（帰国予定がある場合のみ表示）
@@ -183,22 +271,24 @@ if plan_to_return:
     )
     sell_overseas_home = sell_overseas_choice == "する"
     if sell_overseas_home:
-        overseas_home_proceeds = st.slider(
+        overseas_home_proceeds = slider_with_steppers(
             "売却後の手取り額（万円）／海外の住まい",
             min_value=0,
             max_value=20000,
-            value=0,
+            default=0,
             step=100,
+            key="overseas_home_proceeds",
         )
 
 # 公的年金
 st.subheader("公的年金")
-public_pension_at_65 = st.slider(
+public_pension_at_65 = slider_with_steppers(
     "65歳時点の公的年金年額（万円）",
     min_value=0,
     max_value=400,
-    value=200,
+    default=200,
     step=10,
+    key="public_pension_at_65",
     help=(
         "65歳から受け取る公的年金の見込年額を入力してください。"
         "ねんきん定期便などに記載されている金額を目安にできます。"
@@ -206,12 +296,13 @@ public_pension_at_65 = st.slider(
         "保守的に見たい場合は、実際の受取額に近い金額を入力してください。"
     ),
 )
-public_pension_start_age = st.slider(
+public_pension_start_age = slider_with_steppers(
     "受給開始年齢",
     min_value=60,
     max_value=70,
-    value=65,
+    default=65,
     step=1,
+    key="public_pension_start_age",
 )
 
 
@@ -224,19 +315,19 @@ def render_income_streams(title: str, key_prefix: str) -> list[IncomeStream]:
     with st.expander(title):
         for i in range(2):
             st.markdown(f"**{i + 1} 本目**")
-            annual = st.slider(
+            annual = slider_with_steppers(
                 "年額（万円）",
                 min_value=0,
                 max_value=500,
-                value=0,
+                default=0,
                 step=10,
                 key=f"{key_prefix}_amount_{i}",
             )
-            s_age = st.slider(
+            s_age = slider_with_steppers(
                 "受給開始年齢" if "pension" in key_prefix else "開始年齢",
                 min_value=55,
                 max_value=100,
-                value=65 if "pension" in key_prefix else 60,
+                default=65 if "pension" in key_prefix else 60,
                 step=1,
                 key=f"{key_prefix}_start_{i}",
             )
@@ -249,13 +340,15 @@ def render_income_streams(title: str, key_prefix: str) -> list[IncomeStream]:
             end_age: int | None = None
             if end_type == "年齢指定":
                 # 終了年齢は開始年齢以上に制御する
-                end_age = st.slider(
+                end_key = f"{key_prefix}_end_{i}"
+                _clamp_session_value(end_key, s_age, 100, s_age)
+                end_age = slider_with_steppers(
                     "受給終了年齢" if "pension" in key_prefix else "終了年齢",
                     min_value=s_age,
                     max_value=100,
-                    value=s_age,
+                    default=s_age,
                     step=1,
-                    key=f"{key_prefix}_end_{i}",
+                    key=end_key,
                 )
             if i == 0:
                 st.divider()
@@ -275,12 +368,14 @@ corporate_pensions = render_income_streams("企業年金・個人年金などが
 other_incomes = render_income_streams("その他収入がある場合", "other_income")
 
 # 11. 想定運用利回り
-return_rate_pct = st.slider(
+return_rate_pct = slider_with_steppers(
     "想定運用利回り（年率 %）",
     min_value=0.0,
     max_value=5.0,
-    value=2.0,
+    default=2.0,
     step=0.5,
+    key="return_rate_pct",
+    decimals=1,
     help=(
         "迷う場合は2〜4%程度を目安に試算してください。"
         "あわせて、想定より1%程度低い利回りでも試算すると、"
@@ -289,12 +384,14 @@ return_rate_pct = st.slider(
 )
 
 # 12. インフレ率
-inflation_rate_pct = st.slider(
+inflation_rate_pct = slider_with_steppers(
     "インフレ率（年率 %）",
     min_value=0.0,
     max_value=5.0,
-    value=2.0,
+    default=2.0,
     step=0.5,
+    key="inflation_rate_pct",
+    decimals=1,
     help=(
         "迷う場合は2%のままで試算してください。"
         "長期の物価上昇率は正確に予測できるものではないため、"
