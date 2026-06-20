@@ -196,7 +196,7 @@ st.subheader("公的年金")
 public_pension_at_65 = st.slider(
     "65歳時点の公的年金年額（万円）",
     min_value=0,
-    max_value=500,
+    max_value=400,
     value=200,
     step=10,
     help=(
@@ -269,10 +269,10 @@ def render_income_streams(title: str, key_prefix: str) -> list[IncomeStream]:
 
 
 # 9. 企業年金・個人年金
-corporate_pensions = render_income_streams("企業年金・個人年金を追加する", "corp_pension")
+corporate_pensions = render_income_streams("企業年金・個人年金などがある場合", "corp_pension")
 
 # 10. その他収入
-other_incomes = render_income_streams("その他収入を追加する", "other_income")
+other_incomes = render_income_streams("その他収入がある場合", "other_income")
 
 # 11. 想定運用利回り
 return_rate_pct = st.slider(
