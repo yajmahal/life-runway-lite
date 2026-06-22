@@ -1,4 +1,4 @@
-"""Life Runway Lite — 海外移住生活シミュレーター（簡易版）。
+"""海外移住 資産寿命シミュレーター（簡易版）。
 
 Streamlit アプリ本体。入力 UI と結果表示を担当し、
 計算は simulator.py、コメント生成は comments.py に委譲する。
@@ -90,7 +90,7 @@ def slider_with_steppers(
 # ---------------------------------------------------------------------------
 
 st.set_page_config(
-    page_title="Life Runway Lite",
+    page_title="海外移住 資産寿命シミュレーター（簡易版）",
     page_icon="🌏",
     layout="centered",
 )
