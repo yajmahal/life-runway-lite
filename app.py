@@ -477,15 +477,11 @@ def render_results() -> None:
     if has_deficit:
         st.markdown(
             f"### ひとことで結果\n"
-            f"この前提では、**{target}歳時点で不足が出る可能性**があります。"
-            f"{target}歳まで資産が残る可能性は **{prob_pct}%** です。"
+            f"{comment_set.summary}"
+            f"（{target}歳時点の中央値では不足が出ています。）"
         )
     else:
-        st.markdown(
-            f"### ひとことで結果\n"
-            f"この前提では、**{target}歳まで資産が残る可能性は {prob_pct}%** です。"
-            "前提を変えると結果がどう動くかも比較してみてください。"
-        )
+        st.markdown(f"### ひとことで結果\n{comment_set.summary}")
 
     # 2. 資産が残る可能性
     st.subheader("資産が残る可能性")
